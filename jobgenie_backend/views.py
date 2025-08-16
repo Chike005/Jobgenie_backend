@@ -1,8 +1,7 @@
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
+from django.http import JsonResponse, HttpResponse
 
-@csrf_exempt
-def generate_resume(request):
-    if request.method != "POST":
-        return JsonResponse({"detail":"Method Not Allowed"}, status=405)
+def health(request):
     return JsonResponse({"ok": True, "msg": "Job Genie is alive"})
+
+def home(request):
+    return HttpResponse("JobGenie Backend ✓ Try /api/health/ or POST /api/generate_resume/")
