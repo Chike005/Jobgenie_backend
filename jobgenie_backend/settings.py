@@ -41,6 +41,8 @@ INSTALLED_APPS = [
     'generator',
     'corsheaders',
     'rest_framework',
+    "drf_spectacular",
+    "drf_spectacular_sidecar",  # serves Swagger UI assets
 ]
 
 MIDDLEWARE = [
@@ -53,6 +55,20 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+
+REST_FRAMEWORK = {
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema"
+}
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "JobGenie API",
+    "DESCRIPTION": "Resume generation endpoints for JobGenie.",
+    "VERSION": "1.0.0",
+    # optional niceties:
+    "SERVE_INCLUDE_SCHEMA": False,  # hide raw schema on docs page
+    "COMPONENT_SPLIT_REQUEST": True,
+    }
 
 ROOT_URLCONF = 'jobgenie_backend.urls'
 

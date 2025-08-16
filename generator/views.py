@@ -1,8 +1,10 @@
+from io import BytesIO
+from django.http import HttpResponse
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
 from .serializers import ResumeRequest
-
+from docx import Document
 
 def _format_resume(data: dict) -> str:
     full_name = data.get("full_name", "Your Name")
@@ -62,3 +64,74 @@ def generate_resume(request):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     resume_text = _format_resume(serializer.validated_data)
     return Response({"resume": resume_text}, status=status.HTTP_200_OK)
+
+def _doc_from_data(data: dict) -> Document:
+    doc = Document()
+    # Header
+    doc.add_heading(data.get("full_name", "Your Name"), 0)
+    contact = " | ".join([p for p in [data.get("email"), data.get("phone")] if p])
+    if contact:
+        doc.add_paragraph(contact)
+
+    # Education
+    education = data.get("education", [])
+    if education:
+        doc.add_heading("Education", level=1)
+        for e in education:
+            doc.add_paragraph(
+                f'{e.get("degree","")} – {e.get("institution","")}, '
+                f'{e.get("location","")} ({e.get("date","")})'
+            )
+
+    # Projects
+    projects = data.get("projects", [])
+    if projects:
+        doc.add_heading("Projects", level=1)
+        for p in projects:
+            doc.add_paragraph(f'{p.get("name","")} ({p.get("date","")})')
+            if p.get("problem"):
+                doc.add_paragraph(f'Problem: {p["problem"]}')
+            tools = p.get("tools") or []
+            if tools:
+                doc.add_paragraph("Tools: " + ", ".join(tools))
+            for h in p.get("highlights", []):
+                doc.add_paragraph("• " + h)
+
+    # Work History
+    work_history = data.get("work_history", [])
+    if work_history:
+        doc.add_heading("Work History", level=1)
+        for w in work_history:
+            doc.add_paragraph(f'{w.get("role","")} – {w.get("org","")} ({w.get("date","")})')
+            for b in w.get("bullets", []):
+                doc.add_paragraph("• " + b)
+
+    # Skills
+    skills = data.get("skills", [])
+    if skills:
+        doc.add_heading("Skills", level=1)
+        doc.add_paragraph(", ".join(skills))
+
+    return doc
+
+@api_view(["POST"])
+def generate_resume_docx(request):
+    serializer = ResumeRequest(data=request.data)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    data = serializer.validated_data
+    doc = _doc_from_data(data)
+
+    buf = BytesIO()
+    doc.save(buf)
+    buf.seek(0)
+
+    filename = (data.get("full_name") or "resume").replace(" ", "_") + ".docx"
+
+    resp = HttpResponse(
+        buf.getvalue(),
+        content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    )
+    resp["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return resp
